@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TKO 영업이익 — 연도별 · 분기별 (Light)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",Roboto,sans-serif;
+    background:#f4f5f8;color:#1f2433;padding:30px 18px}
+  .wrap{max-width:1160px;margin:0 auto;background:#fff;border:1px solid #e6e8ee;border-radius:18px;
+    padding:28px 32px;box-shadow:0 4px 22px rgba(20,20,50,.05)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.02em;color:#0f1426}
+  .sub{font-size:12.5px;color:#7a8398;margin-top:4px}
+  .ctrls{display:flex;gap:10px;flex-wrap:wrap}
+  .ysw{display:flex;gap:5px;background:#eef0f5;padding:4px;border-radius:11px}
+  .ysw button{border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:#7a8398;padding:8px 15px;border-radius:8px;cursor:pointer;transition:.15s}
+  .ysw button.on{background:#fff;color:#1f2433;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .ysw.tab button.on{background:#1f2433;color:#fff;box-shadow:none}
+
+  .plot{position:relative;height:430px;margin:14px 0 4px;border-left:1px solid #d9dde6}
+  .gl{position:absolute;left:0;right:0;border-top:1px dashed #e9ebf1}
+  .gl.zero{border-top:1.5px solid #b6bdcc}
+  .gl span{position:absolute;left:-50px;top:-7px;font-size:10px;color:#9aa2b5;width:46px;text-align:right;font-variant-numeric:tabular-nums}
+  .cols{position:absolute;inset:0;display:flex;gap:6px;padding:0 6px}
+  .col{flex:1;position:relative;min-width:0}
+  .grp{position:absolute;inset:0;display:flex;gap:3px;justify-content:center;align-items:stretch}
+  .slot{position:relative;flex:1;max-width:46px}
+  .bar{position:absolute;left:0;right:0;border-radius:4px;transition:top .5s cubic-bezier(.4,0,.2,1),height .5s cubic-bezier(.4,0,.2,1)}
+  .bar:hover{filter:brightness(.93)}
+  .blab{position:absolute;left:0;right:0;text-align:center;font-size:10.5px;font-weight:700;color:#3a4258;white-space:nowrap}
+  .xlab{position:absolute;left:0;right:0;bottom:-34px;text-align:center;font-size:12px;font-weight:700;color:#5b6478}
+  .xlab i{display:block;font-size:9.5px;color:#9aa2b5;font-style:normal;font-weight:400;margin-top:1px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:46px;padding-top:18px;border-top:1px solid #e6e8ee}
+  .lg{display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4258}
+  .lg .dot{width:13px;height:13px;border-radius:4px}
+  .lg .lp{color:#9aa2b5;font-weight:700;font-variant-numeric:tabular-nums}
+  .foot{font-size:11.5px;color:#9aa2b5;margin-top:14px;line-height:1.6}
+  .tip{position:fixed;pointer-events:none;background:#1f2433;border:1px solid #3a4258;border-radius:8px;padding:8px 11px;font-size:12px;color:#fff;opacity:0;transition:opacity .12s;z-index:10;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .tip b{color:#fff}
+  @media (max-width:780px){.wrap{padding:20px 14px}.plot{height:330px}.blab{font-size:8.5px}.xlab{font-size:10px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>TKO Group Holdings · 영업이익 / 부문 수익성</h1>
+      <div class="sub">0 기준선 위=이익, 아래=손실 · 막대에 커서를 올리면 마진 표시</div>
+    </div>
+    <div class="ctrls">
+      <div class="ysw tab" id="view">
+        <button data-v="year" class="on">연도별</button>
+        <button data-v="qtr">분기별</button>
+      </div>
+      <div class="ysw" id="metric">
+        <button data-k="op" class="on">연결 영업이익</button>
+        <button data-k="eb">부문 조정 EBITDA</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="plot" id="plot"></div>
+  <div class="legend" id="legend"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function(){
+  // $ thousands. Recast (post-Endeavor Asset Acquisition) presentation, consistent w/ segment dashboards.
+  // opInc = consolidated operating income; rev = consolidated revenue.
+  // Segment Adjusted EBITDA (E) + segment revenue (R) per period.
+  var YEAR=[
+    {q:"FY2023",y:"10-K",d:false,opInc:375780,rev:3224796,
+      UFC:{E:755664,R:1292201},WWE:{E:162981,R:382767},IMG:{E:121147,R:1437110},Corp:{E:-192019,R:131987},totE:847773},
+    {q:"FY2024",y:"10-K",d:false,opInc:30946,rev:4884241,
+      UFC:{E:800994,R:1406241},WWE:{E:681168,R:1398100},IMG:{E:-47970,R:1970230},Corp:{E:-352261,R:170274},totE:1081931},
+    {q:"FY2025",y:"10-K",d:false,opInc:835015,rev:4735151,
+      UFC:{E:850951,R:1502161},WWE:{E:896499,R:1709395},IMG:{E:159969,R:1367259},Corp:{E:-322162,R:199062},totE:1585257}
+  ];
+  var QTR=[
+    {q:"Q1",y:"FY24",d:false,opInc:-173580,rev:1222448,UFC:{E:195083,R:312990},WWE:{E:140213,R:316721},IMG:{E:81283,R:549652},Corp:{E:-77679,R:52229},totE:338900},
+    {q:"Q2",y:"FY24",d:false,opInc:114856,rev:1193191,UFC:{E:231897,R:394358},WWE:{E:251312,R:456803},IMG:{E:-91250,R:319596},Corp:{E:-91200,R:40938},totE:300759},
+    {q:"Q3",y:"FY24",d:false,opInc:34633,rev:1540683,UFC:{E:195630,R:354971},WWE:{E:175269,R:326302},IMG:{E:-54253,R:829141},Corp:{E:-90500,R:54047},totE:226146},
+    {q:"Q4",y:"FY24",d:true,opInc:55037,rev:927919,UFC:{E:178384,R:343922},WWE:{E:114374,R:298274},IMG:{E:16250,R:271841},Corp:{E:-92861,R:23060},totE:216031},
+    {q:"Q1",y:"FY25",d:false,opInc:237364,rev:1268800,UFC:{E:227393,R:359747},WWE:{E:193940,R:391540},IMG:{E:73461,R:476268},Corp:{E:-77400,R:54377},totE:417400},
+    {q:"Q2",y:"FY25",d:false,opInc:368305,rev:1308442,UFC:{E:244792,R:415835},WWE:{E:329739,R:556142},IMG:{E:28994,R:306590},Corp:{E:-77100,R:44632},totE:526425},
+    {q:"Q3",y:"FY25",d:false,opInc:171963,rev:1119914,UFC:{E:165656,R:325236},WWE:{E:207817,R:402099},IMG:{E:61493,R:336772},Corp:{E:-74600,R:63348},totE:360200},
+    {q:"Q4",y:"FY25",d:true,opInc:57383,rev:1037995,UFC:{E:213110,R:401343},WWE:{E:165003,R:359614},IMG:{E:-3979,R:247629},Corp:{E:-93062,R:36705},totE:281157},
+    {q:"Q1",y:"FY26",d:false,opInc:338500,rev:1596876,UFC:{E:254471,R:401221},WWE:{E:256046,R:475658},IMG:{E:97401,R:655534},Corp:{E:-58100,R:73906},totE:549800}
+  ];
+  var SEGS=['UFC','WWE','IMG','Corp'];
+  var SEGCOL={UFC:'#e23b3b',WWE:'#2563eb',IMG:'#e8961c',Corp:'#94a0b5'};
+  var SEGNM={UFC:'UFC',WWE:'WWE',IMG:'IMG',Corp:'Corporate & Other'};
+  function m(v){return v/1000;}
+  function fmt(v){var s=v<0?'-':'';return s+'$'+Math.round(Math.abs(m(v))).toLocaleString('en-US')+'M';}
+  function nice(x){var p=Math.pow(10,Math.floor(Math.log10(x)));var n=x/p;n=n<=1?1:n<=2?2:n<=2.5?2.5:n<=5?5:10;return n*p;}
+
+  var view="year", metric="op", tip=document.getElementById('tip');
+
+  function render(){
+    var DS = view==="year"?YEAR:QTR;
+    var vals=[];
+    DS.forEach(function(x){
+      if(metric==="op") vals.push(x.opInc);
+      else SEGS.forEach(function(s){vals.push(x[s].E);});
+    });
+    var maxV=Math.max.apply(null,vals), minV=Math.min.apply(null,vals);
+    maxV=Math.max(maxV,0); minV=Math.min(minV,0);
+    var top=nice(maxV*1.12)||100000, bot=minV<0?-nice(Math.abs(minV)*1.18):0;
+    var span=top-bot;
+    function yPct(v){return (top-v)/span*100;}
+    var zeroPct=yPct(0);
+
+    var plot=document.getElementById('plot'), g='';
+    // gridlines
+    var stepN=5, stp=nice(span/stepN);
+    for(var gv=Math.ceil(bot/stp)*stp; gv<=top+1; gv+=stp){
+      var cls = Math.abs(gv)<1e-6 ? 'gl zero' : 'gl';
+      g+='<div class="'+cls+'" style="top:'+yPct(gv).toFixed(2)+'%"><span>'+fmt(gv*1000===0?0:gv)+'</span></div>';
+    }
+    g+='<div class="cols">';
+    DS.forEach(function(x){
+      g+='<div class="col">';
+      var items;
+      if(metric==="op"){
+        items=[{nm:'연결 영업이익',col:(x.opInc>=0?'#16a34a':'#e23b3b'),v:x.opInc,mar:x.opInc/x.rev*100,base:x.rev}];
+      } else {
+        items=SEGS.map(function(s){return {nm:SEGNM[s],col:SEGCOL[s],v:x[s].E,mar:x[s].E/x[s].R*100,base:x[s].R};});
+      }
+      g+='<div class="grp">';
+      items.forEach(function(it){
+        var t,h;
+        if(it.v>=0){ t=yPct(it.v); h=zeroPct-t; }
+        else { t=zeroPct; h=yPct(it.v)-zeroPct; }
+        var labTop = it.v>=0 ? 'top:'+(t-16)+'%;' : 'top:calc('+(t+h)+'% + 3px);';
+        g+='<div class="slot">'
+          +'<div class="bar" data-info="'+it.nm+'|'+x.q+(view==="year"?'':' '+x.y)+'|'+fmt(it.v)+'|'+it.mar.toFixed(1)
+          +'" style="top:'+t.toFixed(2)+'%;height:'+Math.max(h,0.4).toFixed(2)+'%;background:'+it.col+'"></div>'
+          +(metric==="op"?'<div class="blab" style="'+labTop+'">'+fmt(it.v)+'</div>':'')
+          +'</div>';
+      });
+      g+='</div><div class="xlab">'+x.q+'<i>'+x.y+(x.d?' ·산출':'')+'</i></div></div>';
+    });
+    g+='</div>';
+    plot.innerHTML=g;
+
+    var last=DS[DS.length-1], lg='';
+    if(metric==="op"){
+      lg='<div class="lg"><span class="dot" style="background:#16a34a"></span>영업이익(흑자) <span class="lp">최근 마진 '+(last.opInc/last.rev*100).toFixed(1)+'%</span></div>'
+        +'<div class="lg"><span class="dot" style="background:#e23b3b"></span>영업손실(적자)</div>';
+    } else {
+      SEGS.forEach(function(s){
+        lg+='<div class="lg"><span class="dot" style="background:'+SEGCOL[s]+'"></span>'+SEGNM[s]
+          +' <span class="lp">최근 마진 '+(last[s].E/last[s].R*100).toFixed(0)+'%</span></div>';
+      });
+    }
+    document.getElementById('legend').innerHTML=lg;
+
+    var base = metric==="op"
+      ? '연결 영업이익(GAAP). FY2024가 거의 0인 것은 UFC 반독점 합의금 등 약 $401M의 일회성 법률비용 영향. FY2025 마진 17.6%로 정상화. Q1 FY24는 합병·법률비용으로 영업손실. '
+      : 'TKO는 부문별 영업이익을 공시하지 않으며, 부문 수익성은 조정 EBITDA(D&A·이자·일회성 제외)로 보고. IMG는 2024년 손실(파리 올림픽 호스피탈리티 원가) → 2025년 흑자 전환. ';
+    document.getElementById('foot').innerHTML = base
+      + (view==="year"
+          ? '연간 = 10-K. '
+          : '분기 Q1–Q3 = 10-Q, Q4(·산출) = 10-K 연간 − 3분기 누계. ')
+      + '단위 백만 달러. 출처: TKO Group Holdings SEC 공시(재구분 기준).';
+
+    [].forEach.call(plot.querySelectorAll('.bar'),function(el){
+      el.addEventListener('mousemove',function(e){
+        var p=el.getAttribute('data-info').split('|');
+        tip.innerHTML='<b>'+p[0]+'</b> · '+p[1]+'<br>'+p[2]+' · 마진 '+p[3]+'%';
+        tip.style.opacity=1;
+        tip.style.left=Math.min(e.clientX+14,window.innerWidth-190)+'px';
+        tip.style.top=(e.clientY-10)+'px';
+      });
+      el.addEventListener('mouseleave',function(){tip.style.opacity=0;});
+    });
+  }
+
+  document.getElementById('view').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    view=b.getAttribute('data-v');
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
+    render();
+  });
+  document.getElementById('metric').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    metric=b.getAttribute('data-k');
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
+    render();
+  });
+  render();
+  window.addEventListener('resize',render);
+})();
+</script>
+</body>
+</html>
