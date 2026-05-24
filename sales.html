@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TKO 매출 구조 — 연도별 · 분기별 (Light)</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Apple SD Gothic Neo",Roboto,sans-serif;
+    background:#f4f5f8;color:#1f2433;padding:30px 18px}
+  .wrap{max-width:1160px;margin:0 auto;background:#fff;border:1px solid #e6e8ee;border-radius:18px;
+    padding:28px 32px;box-shadow:0 4px 22px rgba(20,20,50,.05)}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:18px}
+  h1{font-size:20px;font-weight:700;letter-spacing:-.02em;color:#0f1426}
+  .sub{font-size:12.5px;color:#7a8398;margin-top:4px}
+  .ctrls{display:flex;gap:10px;flex-wrap:wrap}
+  .ysw{display:flex;gap:5px;background:#eef0f5;padding:4px;border-radius:11px}
+  .ysw button{border:none;background:transparent;font:inherit;font-size:13px;font-weight:600;color:#7a8398;padding:8px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+  .ysw button.on{background:#fff;color:#1f2433;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .ysw.tab button.on{background:#1f2433;color:#fff;box-shadow:none}
+
+  .chart{position:relative;height:430px;display:flex;align-items:flex-end;gap:3px;padding:0 6px 0 50px;border-bottom:1px solid #d9dde6;margin-top:8px}
+  .gl{position:absolute;left:50px;right:6px;border-top:1px dashed #e6e8ee;font-size:0}
+  .gl span{position:absolute;left:-48px;top:-7px;font-size:10px;color:#9aa2b5;font-variant-numeric:tabular-nums}
+  .qcol{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end;min-width:0}
+  .qtot{font-size:11.5px;font-weight:700;color:#3a4258;margin-bottom:5px;white-space:nowrap}
+  .bar{display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;transition:height .55s cubic-bezier(.4,0,.2,1);box-shadow:0 1px 4px rgba(20,20,50,.08)}
+  .sg{width:100%;transition:height .55s cubic-bezier(.4,0,.2,1);cursor:default;display:flex;align-items:center;justify-content:center}
+  .sg:hover{filter:brightness(.94)}
+  .sg b{font-size:11px;font-weight:800;color:#fff;opacity:.95;pointer-events:none}
+  .qx{font-size:12px;color:#5b6478;margin-top:9px;text-align:center;font-weight:700}
+  .qx i{display:block;font-size:9.5px;color:#9aa2b5;font-style:normal;font-weight:400;margin-top:1px}
+
+  .legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:24px;padding-top:18px;border-top:1px solid #e6e8ee}
+  .lg{display:flex;align-items:center;gap:8px;font-size:13px;color:#3a4258}
+  .lg .dot{width:13px;height:13px;border-radius:4px}
+  .lg .lp{color:#9aa2b5;font-weight:700;font-variant-numeric:tabular-nums}
+  .foot{font-size:11.5px;color:#9aa2b5;margin-top:16px;line-height:1.6}
+  .tip{position:fixed;pointer-events:none;background:#1f2433;border:1px solid #3a4258;border-radius:8px;padding:8px 11px;font-size:12px;color:#fff;opacity:0;transition:opacity .12s;z-index:10;white-space:nowrap;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .tip b{color:#fff}
+  @media (max-width:780px){.wrap{padding:20px 16px}.chart{height:330px;padding-left:44px}.qx{font-size:10px}.qtot{font-size:9.5px}.sg b{display:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>TKO Group Holdings · 매출 구조</h1>
+      <div class="sub">막대 높이 = 총매출($M) · 색상 = 구성 비중 · 막대에 커서를 올리면 세부 표시</div>
+    </div>
+    <div class="ctrls">
+      <div class="ysw tab" id="view">
+        <button data-v="year" class="on">연도별</button>
+        <button data-v="qtr">분기별</button>
+      </div>
+      <div class="ysw" id="mode">
+        <button data-m="seg" class="on">사업부문별</button>
+        <button data-m="src">매출원천별</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart" id="chart"></div>
+  <div class="legend" id="legend"></div>
+  <div class="foot" id="foot"></div>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function(){
+  // $ thousands. Annual = 10-K; Q1-Q3 = 10-Q disaggregated revenue; Q4 = 10-K FY − 9M YTD (derived).
+  var YEAR=[
+    {q:"FY2023",y:"10-K",d:false,UFC:{Media:870551,Live:167942,Part:196296,Cons:57412},WWE:{Media:249496,Live:87705,Part:17957,Cons:27609},IMG:{Media:692224,Live:650585,Part:79103,Cons:15198},Corp:{Media:15870,Live:81524,Part:26397,Cons:8196},elim:-19269,total:3224796},
+    {q:"FY2024",y:"10-K",d:false,UFC:{Media:879427,Live:220400,Part:251407,Cons:55007},WWE:{Media:865460,Live:338555,Part:82991,Cons:111094},IMG:{Media:721254,Live:1156774,Part:73328,Cons:18874},Corp:{Media:32264,Live:75350,Part:37159,Cons:25501},elim:-60604,total:4884241},
+    {q:"FY2025",y:"10-K",d:false,UFC:{Media:907659,Live:232937,Part:314271,Cons:47294},WWE:{Media:1000565,Live:412822,Part:159583,Cons:136425},IMG:{Media:672761,Live:611273,Part:68956,Cons:14269},Corp:{Media:24131,Live:82424,Part:45706,Cons:46801},elim:-42726,total:4735151}
+  ];
+  var QTR=[
+    {q:"Q1",y:"FY24",d:false,UFC:{Media:214462,Live:35277,Part:48603,Cons:14648},WWE:{Media:221107,Live:50192,Part:13815,Cons:31607},IMG:{Media:177481,Live:353146,Part:12978,Cons:6047},Corp:{Media:6193,Live:30020,Part:10881,Cons:5135},elim:-9144,total:1222448},
+    {q:"Q2",y:"FY24",d:false,UFC:{Media:250585,Live:69152,Part:61633,Cons:12988},WWE:{Media:260676,Live:144102,Part:24750,Cons:27275},IMG:{Media:172472,Live:128201,Part:14481,Cons:4442},Corp:{Media:6299,Live:18902,Part:9896,Cons:5841},elim:-18504,total:1193191},
+    {q:"Q3",y:"FY24",d:false,UFC:{Media:216360,Live:51347,Part:74036,Cons:13228},WWE:{Media:227380,Live:51094,Part:21669,Cons:26159},IMG:{Media:185295,Live:610240,Part:29750,Cons:3856},Corp:{Media:21318,Live:14957,Part:8170,Cons:9602},elim:-23778,total:1540683},
+    {q:"Q4",y:"FY24",d:true,UFC:{Media:198020,Live:64624,Part:67135,Cons:14143},WWE:{Media:156297,Live:93167,Part:22757,Cons:26053},IMG:{Media:186006,Live:65187,Part:16119,Cons:4529},Corp:{Media:0,Live:11471,Part:8212,Cons:4923},elim:-9178,total:927919},
+    {q:"Q1",y:"FY25",d:false,UFC:{Media:224097,Live:58623,Part:64344,Cons:12683},WWE:{Media:251615,Live:76279,Part:25577,Cons:38069},IMG:{Media:161306,Live:288386,Part:22335,Cons:4241},Corp:{Media:3308,Live:33393,Part:12113,Cons:5563},elim:-13132,total:1268800},
+    {q:"Q2",y:"FY25",d:false,UFC:{Media:260491,Live:58478,Part:85730,Cons:11136},WWE:{Media:278915,Live:185765,Part:58291,Cons:33171},IMG:{Media:163397,Live:132148,Part:7868,Cons:3177},Corp:{Media:4661,Live:18465,Part:11650,Cons:9856},elim:-14757,total:1308442},
+    {q:"Q3",y:"FY25",d:false,UFC:{Media:200455,Live:43612,Part:70886,Cons:10283},WWE:{Media:248891,Live:82392,Part:39927,Cons:30889},IMG:{Media:185071,Live:138334,Part:10338,Cons:3029},Corp:{Media:9816,Live:18416,Part:12443,Cons:22673},elim:-7541,total:1119914},
+    {q:"Q4",y:"FY25",d:true,UFC:{Media:222616,Live:72224,Part:93311,Cons:13192},WWE:{Media:221144,Live:68386,Part:35788,Cons:34296},IMG:{Media:162987,Live:52405,Part:28415,Cons:3822},Corp:{Media:6346,Live:12150,Part:9500,Cons:8709},elim:-7296,total:1037995},
+    {q:"Q1",y:"FY26",d:false,UFC:{Media:275315,Live:48493,Part:67095,Cons:10318},WWE:{Media:281673,Live:123470,Part:26234,Cons:44281},IMG:{Media:160245,Live:467651,Part:21506,Cons:6132},Corp:{Media:8935,Live:33011,Part:16276,Cons:15684},elim:-9443,total:1596876}
+  ];
+  var SEGS=['UFC','WWE','IMG','Corp'], SRCS=['Media','Live','Part','Cons'];
+  var SEGCOL={UFC:'#e23b3b',WWE:'#2563eb',IMG:'#e8961c',Corp:'#94a0b5'};
+  var SEGNM={UFC:'UFC',WWE:'WWE',IMG:'IMG',Corp:'Corporate & Other'};
+  var SRCCOL={Media:'#2563eb',Live:'#16a34a',Part:'#db2777',Cons:'#e8961c'};
+  var SRCNM={Media:'미디어 권리·콘텐츠',Live:'라이브·호스피탈리티',Part:'파트너십·마케팅',Cons:'소비재 라이선싱'};
+  function segTot(o){return SRCS.reduce(function(a,k){return a+o[k];},0);}
+  function m(v){return v/1000;}
+  function fmt(v){return '$'+Math.round(m(v)).toLocaleString('en-US')+'M';}
+
+  var view="year", mode="seg", tip=document.getElementById('tip');
+
+  function render(){
+    var DS = view==="year"?YEAR:QTR;
+    var MAX=Math.max.apply(null,DS.map(function(x){return x.total;}));
+    var step = view==="year"?1000000:400000, grid=[];
+    for(var v=0; v<=MAX; v+=step) grid.push(v);
+    var barW = view==="year"?"46%":"80%", barMax = view==="year"?"150px":"60px";
+
+    var chart=document.getElementById('chart'), g='';
+    grid.forEach(function(v){
+      g+='<div class="gl" style="bottom:'+(v/MAX*100)+'%"><span>$'+(v/1000).toLocaleString('en-US')+'M</span></div>';
+    });
+    DS.forEach(function(x){
+      var hPct=x.total/MAX*100;
+      g+='<div class="qcol"><div class="qtot">'+fmt(x.total)+'</div>'
+        +'<div class="bar" style="height:'+hPct.toFixed(2)+'%;width:'+barW+';max-width:'+barMax+'">';
+      var items = mode==="seg"
+        ? SEGS.map(function(s){return {nm:SEGNM[s],col:SEGCOL[s],v:segTot(x[s])};})
+        : SRCS.map(function(k){return {nm:SRCNM[k],col:SRCCOL[k],v:SEGS.reduce(function(a,s){return a+x[s][k];},0)};});
+      items.forEach(function(it){
+        if(it.v<=0) return;
+        var hp=it.v/x.total*100, lbl = hp>=8?'<b>'+hp.toFixed(0)+'%</b>':'';
+        g+='<div class="sg" data-info="'+it.nm+'|'+x.q+(view==="year"?'':' '+x.y)+'|'+fmt(it.v)+'|'+hp.toFixed(1)
+          +'" style="height:'+hp.toFixed(3)+'%;background:'+it.col+'">'+lbl+'</div>';
+      });
+      g+='</div><div class="qx">'+x.q+'<i>'+x.y+(x.d?' ·산출':'')+'</i></div></div>';
+    });
+    chart.innerHTML=g;
+
+    var last=DS[DS.length-1], lg='';
+    var litems = mode==="seg"
+      ? SEGS.map(function(s){return {nm:SEGNM[s],col:SEGCOL[s],v:segTot(last[s])};})
+      : SRCS.map(function(k){return {nm:SRCNM[k],col:SRCCOL[k],v:SEGS.reduce(function(a,s){return a+last[s][k];},0)};});
+    litems.forEach(function(it){
+      lg+='<div class="lg"><span class="dot" style="background:'+it.col+'"></span>'+it.nm
+        +' <span class="lp">최근 '+(it.v/last.total*100).toFixed(0)+'%</span></div>';
+    });
+    document.getElementById('legend').innerHTML=lg;
+
+    document.getElementById('foot').innerHTML = view==="year"
+      ? '단위 백만 달러. FY2023→FY2024는 WWE 합병 효과로 매출 2배 가까이 확대. FY2025는 IMG 매출이 2024년 파리 올림픽 기저효과로 감소했으나, WWE가 Netflix·ESPN 신규 계약으로 이를 상쇄. 출처: TKO Group Holdings 10-K 매출 분해 주석.'
+      : '단위 백만 달러. Q1–Q3는 분기 10-Q 매출 분해 주석, Q4(·산출)는 연간 10-K에서 3분기 누계를 차감해 도출. 2024 Q3·2026 Q1의 급증은 IMG/On Location 호스피탈리티(파리 올림픽·대형 이벤트) 영향. 출처: TKO Group Holdings SEC 공시.';
+
+    [].forEach.call(chart.querySelectorAll('.sg'),function(el){
+      el.addEventListener('mousemove',function(e){
+        var p=el.getAttribute('data-info').split('|');
+        tip.innerHTML='<b>'+p[0]+'</b> · '+p[1]+'<br>'+p[2]+' ('+p[3]+'%)';
+        tip.style.opacity=1;
+        tip.style.left=Math.min(e.clientX+14,window.innerWidth-180)+'px';
+        tip.style.top=(e.clientY-10)+'px';
+      });
+      el.addEventListener('mouseleave',function(){tip.style.opacity=0;});
+    });
+  }
+
+  document.getElementById('view').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    view=b.getAttribute('data-v');
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
+    render();
+  });
+  document.getElementById('mode').addEventListener('click',function(e){
+    var b=e.target.closest('button'); if(!b)return;
+    mode=b.getAttribute('data-m');
+    [].forEach.call(this.querySelectorAll('button'),function(x){x.classList.toggle('on',x===b);});
+    render();
+  });
+  render();
+  window.addEventListener('resize',render);
+})();
+</script>
+</body>
+</html>
