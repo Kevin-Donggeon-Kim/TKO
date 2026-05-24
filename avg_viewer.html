@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>시청자 vs 미디어권 디커플링</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --border: #E8E7E0;
+    --text-1: #1F1F1D;
+    --text-2: #5F5E5A;
+    --text-3: #888780;
+    --accent: #185FA5;
+    --neutral: #7A7973;
+    --grid: rgba(80,80,75,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #2A2A28;
+      --border: #3A3A37;
+      --text-1: #ECEAE2;
+      --text-2: #BFBDB4;
+      --text-3: #8A8881;
+      --accent: #5A95D4;
+      --neutral: #888780;
+      --grid: rgba(180,180,170,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    background: transparent;
+    color: var(--text-1);
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-1); }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; width: 100%; height: 460px; }
+  .note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>시청자 변화율 vs 미디어권 신규 계약 AAV 변화율</h1>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" id="sw1"></span><span>시청자 변화</span></div>
+    <div class="legend-item"><span class="swatch" id="sw2"></span><span>미디어권 AAV 변화</span></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="note">시청자 우하향에도 미디어권은 +70~267% 상승 (MLB만 예외). 출처: Sports Media Watch, Wrestlenomics, TKO 공시.</div>
+</div>
+
+<script>
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const C = {
+  neutral: dark ? '#888780' : '#7A7973',
+  neutralLabel: dark ? '#BFBDB4' : '#3F3E3B',
+  accent: dark ? '#5A95D4' : '#185FA5',
+  accentLabel: dark ? '#B5D4F4' : '#0C447C',
+  text: dark ? '#BFBDB4' : '#4A4A46',
+  grid: dark ? 'rgba(180,180,170,0.12)' : 'rgba(80,80,75,0.10)',
+  axisText: dark ? '#8A8881' : '#5F5E5A'
+};
+
+document.getElementById('sw1').style.background = C.neutral;
+document.getElementById('sw2').style.background = C.accent;
+
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels: ['WNBA', 'UFC', 'NFL', 'NHL', 'WWE Raw', 'MLS', 'MLB', 'College FB', 'NBA', 'WWE SmackDown'],
+    datasets: [
+      {
+        label: '시청자 변화',
+        data: [250, 25, 5, -25, -30, -37, -40, -40, -48, -54],
+        backgroundColor: C.neutral,
+        borderRadius: 2,
+        barPercentage: 0.8,
+        categoryPercentage: 0.75
+      },
+      {
+        label: '미디어권 AAV 변화',
+        data: [233, 267, 70, 213, 89, 178, 25, 150, 158, 40],
+        backgroundColor: C.accent,
+        borderRadius: 2,
+        barPercentage: 0.8,
+        categoryPercentage: 0.75
+      }
+    ]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { right: 48, left: 4, top: 4, bottom: 4 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? '#1F1F1D' : '#FFFFFF',
+        titleColor: C.text,
+        bodyColor: C.text,
+        borderColor: C.grid,
+        borderWidth: 1,
+        padding: 8,
+        callbacks: {
+          label: (c) => {
+            const sign = c.parsed.x > 0 ? '+' : '';
+            return ` ${c.dataset.label}: ${sign}${c.parsed.x}%`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        min: -75, max: 290,
+        ticks: {
+          callback: (v) => (v > 0 ? '+' : '') + v + '%',
+          color: C.axisText,
+          font: { size: 10 }
+        },
+        grid: { color: C.grid, drawTicks: false },
+        border: { display: false }
+      },
+      y: {
+        ticks: { color: C.text, font: { size: 11.5, weight: '500' }, padding: 4 },
+        grid: { display: false },
+        border: { display: false }
+      }
+    }
+  },
+  plugins: [{
+    id: 'valueLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '500 10px -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+      chart.data.datasets.forEach((ds, dsIdx) => {
+        chart.getDatasetMeta(dsIdx).data.forEach((bar, i) => {
+          const v = ds.data[i];
+          const sign = v > 0 ? '+' : '';
+          ctx.fillStyle = dsIdx === 0 ? C.neutralLabel : C.accentLabel;
+          if (v >= 0) {
+            ctx.textAlign = 'left';
+            ctx.fillText(sign + v + '%', bar.x + 5, bar.y);
+          } else {
+            ctx.textAlign = 'right';
+            ctx.fillText(sign + v + '%', bar.x - 5, bar.y);
+          }
+        });
+      });
+      ctx.restore();
+    }
+  }]
+});
+</script>
+</body>
+</html>
