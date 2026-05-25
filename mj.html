@@ -1,0 +1,64 @@
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      data: data,
+      backgroundColor: isTKO.map(t => t ? C.accent : C.neutral),
+      borderRadius: 2,
+      barPercentage: 0.65,
+      categoryPercentage: 0.85
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { right: 55, left: 4, top: 4, bottom: 4 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? '#1F1F1D' : '#FFFFFF',
+        titleColor: C.text,
+        bodyColor: C.text,
+        borderColor: C.grid,
+        borderWidth: 1,
+        padding: 8,
+        callbacks: { label: (c) =>  $${c.parsed.x.toFixed(2)}B }
+      }
+    },
+    scales: {
+      x: {
+        min: 0, max: 3.0,
+        ticks: { callback: (v) => '$' + v + 'B', color: C.axisText, font: { size: 10 } },
+        grid: { color: C.grid, drawTicks: false },
+        border: { display: false }
+      },
+      y: {
+        ticks: { color: C.text, font: { size: 11.5, weight: '500' }, padding: 4 },
+        grid: { display: false },
+        border: { display: false }
+      }
+    }
+  },
+  plugins: [{
+    id: 'valueLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '500 10px -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        ctx.fillStyle = isTKO[i] ? C.accentLabel : C.neutralLabel;
+        const v = data[i];
+        const label = v >= 1 ? '$' + v.toFixed(2) + 'B' : '$' + (v * 1000).toFixed(0) + 'M';
+        ctx.fillText(label, bar.x + 5, bar.y);
+      });
+      ctx.restore();
+    }
+  }]
+});
+</script>
+</body>
+</html>
