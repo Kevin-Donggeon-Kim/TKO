@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리그별 스폰서십 성장률 비교</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --border: #E8E7E0;
+    --text-1: #1F1F1D;
+    --text-2: #5F5E5A;
+    --text-3: #888780;
+    --accent: #185FA5;
+    --neutral: #7A7973;
+    --grid: rgba(80,80,75,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #2A2A28;
+      --border: #3A3A37;
+      --text-1: #ECEAE2;
+      --text-2: #BFBDB4;
+      --text-3: #8A8881;
+      --accent: #5A95D4;
+      --neutral: #888780;
+      --grid: rgba(180,180,170,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    background: transparent;
+    color: var(--text-1);
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-1); }
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; width: 100%; height: 400px; }
+  .note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>스폰서십 매출 YoY 성장률 (최근 시즌)</h1>
+
+  <div class="legend">
+    <div class="legend-item"><span class="swatch" id="sw1"></span><span>TKO 보유 IP</span></div>
+    <div class="legend-item"><span class="swatch" id="sw2"></span><span>기타 리그</span></div>
+  </div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="note">WWE +106% (2025 9M), UFC +28% (2024 FY)로 메이저 리그 +6~14% 대비 2~10배 빠른 성장. WWE는 UFC 벤치마크 추격 중. 출처: TKO 10-Q/10-K, SponsorUnited.</div>
+</div>
+
+<script>
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const C = {
+  neutral: dark ? '#888780' : '#7A7973',
+  neutralLabel: dark ? '#BFBDB4' : '#3F3E3B',
+  accent: dark ? '#5A95D4' : '#185FA5',
+  accentLabel: dark ? '#B5D4F4' : '#0C447C',
+  text: dark ? '#BFBDB4' : '#4A4A46',
+  grid: dark ? 'rgba(180,180,170,0.12)' : 'rgba(80,80,75,0.10)',
+  axisText: dark ? '#8A8881' : '#5F5E5A'
+};
+
+document.getElementById('sw1').style.background = C.accent;
+document.getElementById('sw2').style.background = C.neutral;
+
+const labels = ['WWE', 'UFC', 'MLS', 'NHL', 'NBA', 'NFL', 'MLB'];
+const data = [106, 28, 14, 9, 7, 6, 1];
+const isTKO = [true, true, false, false, false, false, false];
+
+new Chart(document.getElementById('chart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      data: data,
+      backgroundColor: isTKO.map(t => t ? C.accent : C.neutral),
+      borderRadius: 2,
+      barPercentage: 0.65,
+      categoryPercentage: 0.85
+    }]
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { right: 55, left: 4, top: 4, bottom: 4 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? '#1F1F1D' : '#FFFFFF',
+        titleColor: C.text,
+        bodyColor: C.text,
+        borderColor: C.grid,
+        borderWidth: 1,
+        padding: 8,
+        callbacks: { label: (c) => ` +${c.parsed.x}% YoY` }
+      }
+    },
+    scales: {
+      x: {
+        min: 0, max: 125,
+        ticks: { callback: (v) => '+' + v + '%', color: C.axisText, font: { size: 10 } },
+        grid: { color: C.grid, drawTicks: false },
+        border: { display: false }
+      },
+      y: {
+        ticks: { color: C.text, font: { size: 11.5, weight: '500' }, padding: 4 },
+        grid: { display: false },
+        border: { display: false }
+      }
+    }
+  },
+  plugins: [{
+    id: 'valueLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '500 10px -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      chart.getDatasetMeta(0).data.forEach((bar, i) => {
+        ctx.fillStyle = isTKO[i] ? C.accentLabel : C.neutralLabel;
+        ctx.fillText('+' + data[i] + '%', bar.x + 5, bar.y);
+      });
+      ctx.restore();
+    }
+  }]
+});
+</script>
+</body>
+</html>
