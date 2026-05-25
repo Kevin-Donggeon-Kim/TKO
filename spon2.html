@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리그별 스폰서십 매출 4년 추이</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #FFFFFF;
+    --border: #E8E7E0;
+    --text-1: #1F1F1D;
+    --text-2: #5F5E5A;
+    --text-3: #888780;
+    --grid: rgba(80,80,75,0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #2A2A28;
+      --border: #3A3A37;
+      --text-1: #ECEAE2;
+      --text-2: #BFBDB4;
+      --text-3: #8A8881;
+      --grid: rgba(180,180,170,0.12);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif;
+    background: transparent;
+    color: var(--text-1);
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  h1 { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: var(--text-1); }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-bottom: 10px;
+    font-size: 11.5px;
+    color: var(--text-2);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; width: 100%; height: 460px; }
+  .note {
+    margin-top: 12px;
+    font-size: 11px;
+    color: var(--text-3);
+    line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>리그별 스폰서십 매출 추이 (2022-2025)</h1>
+
+  <div class="legend" id="legend"></div>
+
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+
+  <div class="note">WWE 2022·2023 수치는 WWE Inc. 합병 전 8-K 공시(Media + Live Events advertising/sponsorship 합산) 기준 보정. TKO 공시(3.5개월 부분)만 사용 시 왜곡 발생. UFC·WWE는 단일 entity, 다른 리그는 SponsorUnited team-level. 2025E는 9M 데이터 annualized 추정. 출처: SponsorUnited, WWE Inc./TKO SEC 공시.</div>
+</div>
+
+<script>
+const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+const C = {
+  ufc: dark ? '#5A95D4' : '#185FA5',
+  wwe: dark ? '#E2A06A' : '#C77B3C',
+  nfl: dark ? '#9E9C97' : '#5F5E5A',
+  mlb: dark ? '#8A8881' : '#7A7973',
+  nba: dark ? '#8A8881' : '#7A7973',
+  nhl: dark ? '#8A8881' : '#7A7973',
+  mls: dark ? '#8A8881' : '#7A7973',
+  text: dark ? '#BFBDB4' : '#4A4A46',
+  grid: dark ? 'rgba(180,180,170,0.12)' : 'rgba(80,80,75,0.10)',
+  axisText: dark ? '#8A8881' : '#5F5E5A'
+};
+
+const datasets = [
+  { label: 'NFL', data: [1780, 2050, 2350, 2490], color: C.nfl, strong: false },
+  { label: 'MLB', data: [1220, 1500, 1880, 2050], color: C.mlb, strong: false },
+  { label: 'NBA', data: [1300, 1400, 1500, 1620], color: C.nba, strong: false },
+  { label: 'NHL', data: [1100, 1280, 1400, 1530], color: C.nhl, strong: false },
+  { label: 'MLS', data: [510, 587, 670, 750], color: C.mls, strong: false },
+  { label: 'UFC', data: [167, 196, 251, 295], color: C.ufc, strong: true },
+  { label: 'WWE', data: [85, 78, 83, 165], color: C.wwe, strong: true }
+];
+
+const legendEl = document.getElementById('legend');
+datasets.forEach(d => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = `<span class="swatch" style="background:${d.color}"></span><span>${d.label}</span>`;
+  legendEl.appendChild(item);
+});
+
+new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: {
+    labels: ['2022', '2023', '2024', '2025E'],
+    datasets: datasets.map(d => ({
+      label: d.label,
+      data: d.data,
+      borderColor: d.color,
+      backgroundColor: d.color,
+      tension: 0.2,
+      pointRadius: d.strong ? 4 : 3,
+      pointHoverRadius: 6,
+      borderWidth: d.strong ? 2.5 : 1.5
+    }))
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    layout: { padding: { right: 50, left: 8, top: 12, bottom: 4 } },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: dark ? '#1F1F1D' : '#FFFFFF',
+        titleColor: C.text,
+        bodyColor: C.text,
+        borderColor: C.grid,
+        borderWidth: 1,
+        padding: 8,
+        callbacks: {
+          label: (c) => ` ${c.dataset.label}: $${c.parsed.y.toLocaleString()}M`
+        }
+      }
+    },
+    scales: {
+      x: {
+        ticks: { color: C.axisText, font: { size: 11 } },
+        grid: { display: false },
+        border: { color: C.grid }
+      },
+      y: {
+        min: 0, max: 2800,
+        ticks: {
+          callback: (v) => v >= 1000 ? '$' + (v/1000).toFixed(1) + 'B' : '$' + v + 'M',
+          color: C.axisText,
+          font: { size: 10 }
+        },
+        grid: { color: C.grid, drawTicks: false },
+        border: { display: false }
+      }
+    }
+  },
+  plugins: [{
+    id: 'endLabels',
+    afterDatasetsDraw(chart) {
+      const { ctx } = chart;
+      ctx.save();
+      ctx.font = '500 10.5px -apple-system, sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      chart.data.datasets.forEach((ds, dsIdx) => {
+        const meta = chart.getDatasetMeta(dsIdx);
+        const lastIdx = ds.data.length - 1;
+        const point = meta.data[lastIdx];
+        ctx.fillStyle = ds.borderColor;
+        ctx.fillText(ds.label, point.x + 6, point.y);
+      });
+      ctx.restore();
+    }
+  }]
+});
+</script>
+</body>
+</html>
